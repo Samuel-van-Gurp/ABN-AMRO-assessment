@@ -35,3 +35,23 @@ def load_and_clean_data(path_to_data1: str, path_to_data2: str):
 
     return df1, df2
 
+def join_and_fillters (df1, df2, countries_of_intrest = ['United Kingdom','Netherlands']):
+    """
+    This function joins two DataFrames and filters rows based on specified countries of interest.
+
+    :param df1: Spark DataFrame
+        The first DataFrame to be joined containing customer information.
+    :param df2: Spark DataFrame
+        The second DataFrame to be joined containing financial information of costumer.
+    :param countries_of_interest: list, optional
+        A list of countries of interest to filter the data. Default is ['United Kingdom', 'Netherlands'].
+
+    :return: Spark DataFrame
+        Joined DataFrame after filtering rows based on the specified countries of interest.
+    """
+    # drop all rows with a country not in the countries_of_intrest list
+    df1 = df1.filter(df1.country.isin(countries_of_intrest)) 
+    # join the two datasets
+    df_joined = df1.join(df2, 'client_identifier', 'inner')
+    
+    return df_joined
