@@ -55,3 +55,22 @@ def join_and_fillters (df1, df2, countries_of_intrest = ['United Kingdom','Nethe
     df_joined = df1.join(df2, 'client_identifier', 'inner')
     
     return df_joined
+
+def save (df, path_to_save: str):
+    """
+    Save the joined dataset to a csv file.
+    """
+    df.write.csv(path_to_save, header=True) 
+
+
+def main():
+    # Load and clean the data
+    df1, df2 = load_and_clean_data('dataset_one.csv', 'dataset_two.csv')
+    # Join and fill the data
+    df_joined = join_and_fillters()(df1, df2)
+    # Save the data
+    save(df_joined, 'joined_data.csv')
+    df_joined.show(5)
+    
+if __name__=="__main__":
+    main()
