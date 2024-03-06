@@ -1,94 +1,120 @@
 from pyspark.sql import SparkSession
-spark = SparkSession.builder.config("spark.hadoop.fs.AbstractFileSystem.s3a.impl", "org.apache.hadoop.fs.LocalFileSystem").appName("costumer_data").getOrCreate()
-print("hallo")
+spark = SparkSession.builder.appName("costumer_data").getOrCreate()
 
-df1 = spark.read.csv('dataset_one.csv', header=True, inferSchema=True)
-df1.write.csv('client_data/test_csv.csc', header=True)
-# #
-# def load_and_cean_data(path_to_data1: str, path_to_data2: str):
-#     """
-#     function loads the two CSV files into Spark DataFrames.
-#     then it cleans the data by removing personal identifiable information from the first dataset, excluding emails.
-#     and by removing credit card number from the second dataset.
-#     and renaming the columns for clarity.
-#
-#     :param path_to_data1: str
-#         The file path to the first dataset.
-#     :param path_to_data2: str
-#         The file path to the second dataset.
-#
-#     :return: Tuple containing two Spark DataFrames
-#         Cleaned DataFrame from the first dataset and cleaned DataFrame from the second dataset.
-#     """
-#     # Load dataset_one and dataset_two
-#     df1 = spark.read.csv(path_to_data1, header=True, inferSchema=True)
-#     df2 = spark.read.csv(path_to_data2, header=True, inferSchema=True)
-#
-#     # clean dataset_one, by removing  personal identifiable information from the first dataset, excluding emails.
-#     df1 = df1.drop('first_name', 'last_name')
-#     # rename id to client_identifier
-#     df1 = df1.withColumnRenamed('id', 'client_identifier')
-#
-#     # Clean dataset_two, by removing credit card number.
-#     df2 = df2.drop('client_identifier')
-#
-#     # rename columns
-#     df2 = df2.withColumnRenamed('id', 'client_identifier')
-#     df2 = df2.withColumnRenamed('btc_a','bitcoin_address')
-#     df2 = df2.withColumnRenamed('cc_t',	'credit_card_type')
-#
-#     return df1, df2
-#
-#
-# df1, df2 = load_and_clean_data('dataset_one.csv', 'dataset_two.csv')
-# # print(df1.show(5))
-#
-# def join_and_fillters (df1, df2, countries_of_intrest = ['United Kingdom','Netherlands']):
-#     """
-#     This function joins two DataFrames and filters rows based on specified countries of interest.
-#
-#     :param df1: Spark DataFrame
-#         The first DataFrame to be joined containing customer information.
-#     :param df2: Spark DataFrame
-#         The second DataFrame to be joined containing financial information of costumer.
-#     :param countries_of_interest: list, optional
-#         A list of countries of interest to filter the data. Default is ['United Kingdom', 'Netherlands'].
-#
-#     :return: Spark DataFrame
-#         Joined DataFrame after filtering rows based on the specified countries of interest.
-#     """
-#     # drop all rows with a country not in the countries_of_intrest list
-#     df1 = df1.filter(df1.country.isin(countries_of_intrest))
-#     # join the two datasets
-#     df_joined = df1.join(df2, 'client_identifier', 'inner')
-#
-#     return df_joined
-#
-# df_joined = join_and_fillters (df1, df2)
-# print(df_joined.show(5))
-#
-#
-# def save(df, path_to_save: str):
-#     """
-#     Save the DataFrame to a CSV file.
-#     """
-#     # Specify the full path for saving the CSV file
-#     csv_path = path_to_save + "/joined_data.csv"
-#
-#     # Write the DataFrame to CSV
-#     df.write.mode('overwrite').csv(csv_path, header=True)
-# print(df_joined.show(5))
-# save(df_joined, 'C:/Users/korat/OneDrive/Bureaublad/ABN_AMRO/client_data')
-#
-# #
-# # def main():
-# #     # Load and clean the data
-# #     df1, df2 = load_and_clean_data('dataset_one.csv', 'dataset_two.csv')
-# #     # Join and fill the data
-# #     df_joined = join_and_fillters(df1, df2)
-# #     # Save the data
-# #     save(df_joined, 'joined_data.csv')
-# #     df_joined.show(5)
-# #
-# # if __name__=="__main__":
-# #     main()
+def load_and_clean_data(path_to_data: str,
+                        columns_to_drop=[],
+                        column_rename={}):
+    """
+    Function load a CSV file into Spark DataFrames and cleans the data, by dropping columns and renaming columns.
+
+    :arg path_to_data: str
+        The file path to the dataset (in csv file).
+    :arg columns_to_drop: list, optional
+        A list of column names to drop from the first dataset. Default is [].
+    :arg column_rename: dict
+        A dictionary specifying column renaming for the first dataset. Default is {}.
+ 
+    :return: Spark DataFrame
+        Cleaned DataFrame 
+    """
+    df = spark.read.csv(path_to_data, header=True, inferSchema=True)
+    
+    # Drop specified columns
+    df = df.drop(*columns_to_drop)
+  
+    # Rename columns
+    for old_col, new_col in column_rename.items():
+        df = df.withColumnRenamed(old_col, new_col)
+   
+    return df
+
+def filter(df, filter_conditions={}):
+    """
+    function filters the DataFrame based on the specified conditions.
+
+    :arg df: Spark DataFrame
+
+    :arg filter_conditions: dict
+        A dictionary specifying filtering conditions as column-value pairs. Default is None.
+
+    :return: Spark DataFrame
+        Joined DataFrame after applying filter conditions.
+    """
+    if filter_conditions:
+        for column, values in filter_conditions.items():
+            df =  df.filter(df[column].isin(values))
+
+    return df
+
+def join(df1, df2, join_key, join_type='inner'):
+    """
+    Function joins two DataFrames based on the specified join key and join type.
+
+    :arg df1: Spark DataFrame
+        The first DataFrame to join.
+    :arg df2: Spark DataFrame
+        The second DataFrame to join.
+    :arg join_key: str
+        The column name to join the DataFrames on.
+    :arg join_type: str, optional
+        The type of join to perform. Default is 'inner'.
+
+    :return: Spark DataFrame
+        Joined DataFrame after applying the join.
+    """
+    df_joined = df1.join(df2, on=join_key, how=join_type)
+    return df_joined
+
+
+def save(df, path_to_save: str):
+    """
+    Save the DataFrame to a CSV file.
+    """
+    # Specify the full path for saving the CSV file
+    csv_path = path_to_save + "/joined_data.csv"
+
+    # Write the DataFrame to CSV
+    df.write.mode('overwrite').csv(csv_path, header=True)
+
+
+
+def main(data_path_one: str, 
+         data_path_two: str,
+         data_path_out: str, 
+         columns_to_drop1=[], 
+         columns_to_drop2=[], 
+         column_rename_1={}, 
+         column_rename_2={},
+         filter_conditions_1 = {},
+         filter_conditions_2 = {},
+         join_key='client_identifier', 
+         join_type='inner'):
+    
+    # Load and clean the data
+    df1 = load_and_clean_data(data_path_one, 
+                            columns_to_drop=columns_to_drop1, 
+                            column_rename=column_rename_1)
+    df2 = load_and_clean_data(data_path_two, 
+                        columns_to_drop=columns_to_drop1, 
+                        column_rename=column_rename_2)
+    
+    # filter the data in data_set one )
+    df1 = filter(df1, filter_conditions_1)
+    df2 = filter(df2, filter_conditions_2)
+
+    # Join the data
+    df_joined = join(df1, df2, join_key, join_type)
+    
+    # Save the data
+    save(df_joined, data_path_out)
+    df_joined.show(5)
+
+if __name__ == "__main__":
+    main('dataset_one.csv', 'dataset_two.csv', 'client_data/joined_data',
+         columns_to_drop1=['first_name', 'last_name'],
+         columns_to_drop2=['client_identifier'],
+         column_rename_1={'id': 'client_identifier'},
+         column_rename_2={'id': 'client_identifier', 'btc_a': 'bitcoin_address', 'cc_t': 'credit_card_type'},
+         filter_conditions_1={'country': ['United Kingdom', 'Netherlands']},
+         filter_conditions_2={}
+         )
