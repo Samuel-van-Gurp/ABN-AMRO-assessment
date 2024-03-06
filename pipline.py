@@ -1,5 +1,10 @@
 from pyspark.sql import SparkSession
+import logging
 
+# Set the logging level
+logging.basicConfig(level=logging.INFO)
+
+# Create a Spark session
 spark = SparkSession.builder.appName("costumer_data").getOrCreate()
 
 def load_and_clean_data(path_to_data: str,
@@ -24,6 +29,7 @@ def load_and_clean_data(path_to_data: str,
     try:
         df = spark.read.csv(path_to_data, header=True, inferSchema=True)
     except Exception as e:
+        logging.error(f"Error loading data: {e}")
         raise IOError(f"Error loading data: {e}")
     
     # Drop specified columns
@@ -132,16 +138,17 @@ def main(data_path_one: str,
     df2 = load_and_clean_data(data_path_two, 
                         columns_to_drop=columns_to_drop2, 
                         column_rename=column_rename_2)
-    
+    logging.info("Data loaded and cleaned")
     # filter the data in data_set one )
     df1 = filter(df1, filter_conditions_1)
     df2 = filter(df2, filter_conditions_2)
-
+    logging.info("Data filtered")
     # Join the data
     df_joined = join(df1, df2, join_key, join_type)
-    
+    logging.info("Data joined")
     # Save the data
     save(df_joined, data_path_out)
+    logging.info("Data saved")
     df_joined.show(5)
 
 if __name__ == "__main__":
